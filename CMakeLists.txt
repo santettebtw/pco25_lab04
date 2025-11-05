@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
-project(PCO_lab01)
+project(PCO_LAB04)
 
-add_subdirectory(counter)
-add_subdirectory(interlacement)
-add_subdirectory(order)
-add_subdirectory(timestamps)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+add_subdirectory(QtrainSim)
+add_subdirectory(code)
