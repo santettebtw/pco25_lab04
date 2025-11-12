@@ -1,4 +1,4 @@
-//  /$$$$$$$   /$$$$$$   /$$$$$$         /$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$$ 
+//  /$$$$$$$   /$$$$$$   /$$$$$$         /$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$$
 // | $$__  $$ /$$__  $$ /$$__  $$       /$$__  $$ /$$$_  $$ /$$__  $$| $$____/ 
 // | $$  \ $$| $$  \__/| $$  \ $$      |__/  \ $$| $$$$\ $$|__/  \ $$| $$      
 // | $$$$$$$/| $$      | $$  | $$        /$$$$$$/| $$ $$ $$  /$$$$$$/| $$$$$$$ 
@@ -33,13 +33,15 @@
  */
 class SharedSection final : public SharedSectionInterface
 {
+
+
 public:
 
     /**
      * @brief SharedSection Constructeur de la classe qui représente la section partagée.
      * Initialisez vos éventuels attributs ici, sémaphores etc.
      */
-    SharedSection() {
+    SharedSection() : sem(0), mutex(1), blocked(false){
         // TODO
     }
 
@@ -50,6 +52,16 @@ public:
      */
     void access(Locomotive& loco, Direction d) override {
         // TODO
+        mutex.acquire();
+        if(blocked){
+            mutex.release();
+            loco.arreter();
+
+            sem.acquire();
+        }else{
+            blocked  = true;
+            mutex.release();
+        }
     }
 
     /**
@@ -59,6 +71,9 @@ public:
      */
     void leave(Locomotive& loco, Direction d) override {
         // TODO
+        if(blocked){
+            release(loco);
+        }
     }
 
     /**
@@ -90,7 +105,9 @@ private:
      * Vous êtes libres d'ajouter des méthodes ou attributs
      * pour implémenter la section partagée.
      */
-
+    PcoSemaphore sem;
+    PcoSemaphore mutex;
+    bool blocked;
 };
 
 

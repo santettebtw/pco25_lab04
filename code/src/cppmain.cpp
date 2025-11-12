@@ -73,7 +73,8 @@ int cmain()
     diriger_aiguillage(20, DEVIE     , 0);
     diriger_aiguillage(21, DEVIE     , 0);
     diriger_aiguillage(22, TOUT_DROIT, 0);
-    diriger_aiguillage(23, TOUT_DROIT, 0);
+    // modif config au démarrage
+    diriger_aiguillage(23, DEVIE, 0);
     diriger_aiguillage(24, TOUT_DROIT, 0);
 
     // diriger_aiguillage(/*NUMERO*/, /*TOUT_DROIT | DEVIE*/, /*0*/);
