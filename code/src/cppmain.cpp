@@ -58,7 +58,7 @@ int cmain()
     diriger_aiguillage(5,  DEVIE, 0); // close red loop
     diriger_aiguillage(6,  TOUT_DROIT, 0);
     diriger_aiguillage(7,  TOUT_DROIT, 0);
-    diriger_aiguillage(8,  DEVIE     , 0);
+    diriger_aiguillage(8,  TOUT_DROIT, 0); // open shared section to blue loop
     diriger_aiguillage(9,  DEVIE     , 0);
     diriger_aiguillage(10, TOUT_DROIT, 0);
     diriger_aiguillage(11, DEVIE, 0); // close shared loop
@@ -66,15 +66,15 @@ int cmain()
     diriger_aiguillage(13, TOUT_DROIT, 0);
     diriger_aiguillage(14, DEVIE     , 0);
     diriger_aiguillage(15, DEVIE     , 0);
-    diriger_aiguillage(16, TOUT_DROIT, 0);
-    diriger_aiguillage(17, DEVIE, 0); // close shared loop
-    diriger_aiguillage(18, TOUT_DROIT, 0);
+    diriger_aiguillage(16, DEVIE, 0); // open blue loop to shared section
+    diriger_aiguillage(17, DEVIE, 0); // close shared section
+    diriger_aiguillage(18, DEVIE, 0); // open shared section to red loop
     diriger_aiguillage(19, TOUT_DROIT, 0);
     diriger_aiguillage(20, DEVIE     , 0);
     diriger_aiguillage(21, DEVIE     , 0);
     diriger_aiguillage(22, TOUT_DROIT, 0);
     diriger_aiguillage(23, DEVIE, 0); // close red loop
-    diriger_aiguillage(24, TOUT_DROIT, 0);
+    diriger_aiguillage(24, DEVIE, 0); // open red loop to shared section
 
     // diriger_aiguillage(/*NUMERO*/, /*TOUT_DROIT | DEVIE*/, /*0*/);
 
