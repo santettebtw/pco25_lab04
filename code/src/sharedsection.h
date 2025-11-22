@@ -54,9 +54,9 @@ public:
         // TODO
 
         if(!blocked)
-            _loco = loco;
+            _loco = &loco;
 
-        if(_loco == loco)
+        if(_loco == &loco)
             ++nberrors;
 
         mutex.acquire();
@@ -83,7 +83,7 @@ public:
         if(d != _d)
             ++nberrors;
 
-        if(_loco == loco)
+        if(_loco == &loco)
             ++nberrors;
 
     }
@@ -127,7 +127,7 @@ private:
      * Vous êtes libres d'ajouter des méthodes ou attributs
      * pour implémenter la section partagée.
      */
-    Locomotive _loco;
+    Locomotive *_loco;
     PcoSemaphore sem;
     PcoSemaphore mutex;
     bool blocked;
