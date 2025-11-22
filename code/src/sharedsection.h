@@ -71,9 +71,8 @@ public:
      */
     void leave(Locomotive& loco, Direction d) override {
         // TODO
-        if(blocked){
-            release(loco);
-        }
+        release(loco);
+
     }
 
     /**
@@ -82,6 +81,10 @@ public:
      */
     void release(Locomotive &loco) override {
         // TODO
+        mutex.acquire();
+        blocked = false;
+        sem.release();
+        mutex.release();;
     }
 
     /**
