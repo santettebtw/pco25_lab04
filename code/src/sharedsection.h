@@ -41,7 +41,7 @@ public:
      * @brief SharedSection Constructeur de la classe qui représente la section partagée.
      * Initialisez vos éventuels attributs ici, sémaphores etc.
      */
-    SharedSection() : sem(0), mutex(1), blocked(false){
+    SharedSection() : sem(0), mutex(1), blocked(false),iswaiting(false), nberrors(0){
         // TODO
     }
 
@@ -52,16 +52,25 @@ public:
      */
     void access(Locomotive& loco, Direction d) override {
         // TODO
+
+        if(!blocked)
+            _loco = loco;
+
+        if(_loco == loco)
+            ++nberrors;
+
         mutex.acquire();
         if(blocked){
+            iswaiting = true;
             mutex.release();
             loco.arreter();
-
             sem.acquire();
-        }else{
-            blocked  = true;
-            mutex.release();
         }
+        loco.demarrer();
+        blocked  = true;
+        _d = d;
+        mutex.release();
+
     }
 
     /**
@@ -71,7 +80,11 @@ public:
      */
     void leave(Locomotive& loco, Direction d) override {
         // TODO
-        release(loco);
+        if(d != _d)
+            ++nberrors;
+
+        if(_loco == loco)
+            ++nberrors;
 
     }
 
@@ -83,8 +96,10 @@ public:
         // TODO
         mutex.acquire();
         blocked = false;
-        sem.release();
-        mutex.release();;
+
+        if(iswaiting)
+            sem.release();
+        mutex.release();
     }
 
     /**
@@ -92,6 +107,10 @@ public:
      */
     void stopAll() override {
         // TODO
+        mutex.acquire();
+        blocked = true;
+        mutex.acquire();
+
     }
 
     /**
@@ -100,7 +119,7 @@ public:
      */
     int nbErrors() override {
         // TODO
-        return 0;
+        return nberrors;
     }
 
 private:
@@ -108,9 +127,13 @@ private:
      * Vous êtes libres d'ajouter des méthodes ou attributs
      * pour implémenter la section partagée.
      */
+    Locomotive _loco;
     PcoSemaphore sem;
     PcoSemaphore mutex;
     bool blocked;
+    bool iswaiting;
+    int nberrors;
+    Direction _d;
 };
 
 
