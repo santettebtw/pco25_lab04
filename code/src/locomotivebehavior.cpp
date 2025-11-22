@@ -18,20 +18,21 @@ void LocomotiveBehavior::run()
     loco.demarrer();
     loco.afficherMessage("Ready!");
 
-    /* A vous de jouer ! */
-
-    // Vous pouvez appeler les méthodes de la section partagée comme ceci :
-    //sharedSection->access(loco);
-    //sharedSection->leave(loco);
-    //sharedSection->stopAtStation(loco);
-
-    /*
+    bool isLocoA = (loco.numero() == 7);
+    SharedSectionInterface::Direction direction = isLocoA 
+        ? SharedSectionInterface::Direction::D1 
+        : SharedSectionInterface::Direction::D2;
+    
+    int contactAvantEntree = isLocoA ? 33 : 29;
+    int contactApresSortie = isLocoA ? 9 : 10;
+    
     while(true) {
-        // On attend qu'une locomotive arrive sur le contact 1.
-        // Pertinent de faire ça dans les deux threads? Pas sûr...
-        attendre_contact(1);
-        loco.afficherMessage("J'ai atteint le contact 1");
-    }*/
+       attendre_contact(contactAvantEntree);
+       sharedSection->access(loco, direction);
+       attendre_contact(contactApresSortie);
+       sharedSection->leave(loco, direction);
+       sharedSection->release(loco);
+    }
 }
 
 
