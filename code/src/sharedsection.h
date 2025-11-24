@@ -137,10 +137,8 @@ public:
         // On bloque l’accès à la section : aucune locomotive ne pourra entrer
         blocked = true;
 
-        // Tentative d’acquérir à nouveau le mutex.
-        // (Cela provoquera un blocage si le mutex n’est pas réentrant :
-        //  la fonction se retrouvera bloquée ici en attendant elle-même.)
-        mutex.acquire();
+
+        mutex.release();
     }
 
     /**

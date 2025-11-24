@@ -9,3 +9,20 @@
 5. Aiguillage de sortie de la section partagee pour le train bleu (14)
 6. Aiguillage d'entree a la section partagee pour le train rouge (24)
 7. Aiguillage de sortie de la section partagee pour le train rouge (18)
+
+
+# Implementation de sharedsection 
+
+## attribute liste : 
+
+## méthode : 
+
+### access :
+
+### leave :
+
+### release : 
+
+### StopAll :
+
+### nbErrors :
