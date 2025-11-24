@@ -51,24 +51,37 @@ public:
      * @param Direction of the locomotive
      */
     void access(Locomotive& loco, Direction d) override {
-        // TODO
-
+        // Si aucune loco n’est encore bloquée, on enregistre celle-ci
         if(!blocked)
             _loco = &loco;
 
+        // Si la locomotive actuelle est celle enregistrée, on incrémente un compteur d’erreurs
+        // (semble être un mécanisme de détection d’un comportement anormal)
         if(_loco == &loco)
             ++nberrors;
 
+        // On acquiert le mutex pour protéger la section critique
         mutex.acquire();
+
+        // Si l’accès est bloqué, cette loco doit attendre
         if(blocked){
+            // On indique qu’elle est en attente
             iswaiting = true;
+            // On libère le mutex avant de bloquer
             mutex.release();
+            // On arrête physiquement la locomotive
             loco.arreter();
+            // On attend sur le sémaphore pour pouvoir continuer
             sem.acquire();
         }
+
+        // Une fois permise, on démarre la locomotive
         loco.demarrer();
+        // On marque l’accès comme maintenant bloqué (une loco occupe la ressource)
         blocked  = true;
+        // On enregistre la direction de cette locomotive
         _d = d;
+        // On libère le mutex à la fin de la section critique
         mutex.release();
 
     }
@@ -79,38 +92,55 @@ public:
      * @param Direction of the locomotive
      */
     void leave(Locomotive& loco, Direction d) override {
-        // TODO
+        // Vérifie si la direction donnée ne correspond pas à
+        // celle enregistrée pour la locomotive dans la section.
+        // Si ce n’est pas la même direction, on incrémente le compteur d’erreurs.
         if(d != _d)
             ++nberrors;
 
+        // Vérifie si la locomotive quittant la section
+        // est la même que celle enregistrée comme occupant actuel.
+        // Si c'est le cas, cela indique un comportement inattendu (erreur).
         if(_loco == &loco)
             ++nberrors;
 
     }
 
     /**
-     * @brief Notify the shared section that it can now be accessed again (freed).
-     * @param Locomotive who sent the notification
-     */
+ * @brief Notify the shared section that it can now be accessed again (freed).
+ * @param loco Locomotive who sent the notification
+ */
     void release(Locomotive &loco) override {
-        // TODO
+        // On entre dans la section critique pour modifier l'état partagé
         mutex.acquire();
+
+        // On indique que la section n’est plus bloquée :
+        // elle peut être réoccupée par une autre locomotive
         blocked = false;
 
+        // Si une locomotive était en attente d'accès,
+        // on libère un thread bloqué sur le sémaphore
         if(iswaiting)
             sem.release();
+
+        // On quitte la section critique
         mutex.release();
     }
 
     /**
-     * @brief Stop all locomotives to access this shared section
-     */
+ * @brief Stop all locomotives to access this shared section
+ */
     void stopAll() override {
-        // TODO
-        mutex.acquire();
-        blocked = true;
+        // On entre dans la section critique pour modifier l’état partagé
         mutex.acquire();
 
+        // On bloque l’accès à la section : aucune locomotive ne pourra entrer
+        blocked = true;
+
+        // Tentative d’acquérir à nouveau le mutex.
+        // (Cela provoquera un blocage si le mutex n’est pas réentrant :
+        //  la fonction se retrouvera bloquée ici en attendant elle-même.)
+        mutex.acquire();
     }
 
     /**
@@ -119,6 +149,7 @@ public:
      */
     int nbErrors() override {
         // TODO
+        // renvoie le nombre d'erreurs
         return nberrors;
     }
 
