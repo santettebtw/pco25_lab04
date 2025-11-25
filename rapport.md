@@ -1,126 +1,47 @@
-# Rapport - PCO25 Lab04
+# Rapport — PCO25 Lab04
 
-## 1. Architecture globale
+## Architecture
+- Deux threads `LocomotiveBehavior` (locos 7 et 42) pilotent chacun un parcours cyclique avec inversion de sens.
+- Une unique `SharedSection` sérialise l’accès au tronçon commun via `PcoSemaphore`.
+- `emergency_stop()` coupe immédiatement les deux locomotives et notifie la section partagée (`stopAll`).
 
-Deux threads `LocomotiveBehavior` (locos 7 et 42) partagent une instance unique de `SharedSection`. Les contacts fournis par le simulateur synchronisent les déplacements, tandis que les aiguillages sont pilotés depuis chaque thread juste avant d'entrer/sortir du tronçon commun. L'arrêt d'urgence (`emergency_stop`) agit simultanément sur les locos et notifie la section partagée.
+## Section partagée
+- `access()` mémorise la locomotive/direction en attente, arrête la loco si la section est occupée puis la relance dès que le sémaphore est libéré.
+- `leave()` enregistre la sortie physique et déclenche `release()` immédiatement seulement si la prochaine locomotive arrive en sens opposé.
+- `release()` impose un délai post-sortie pour les trains qui se suivent dans le même sens (`isReleased` évite les doubles libérations) et libère le sémaphore.
+- `stopAll()` pose un drapeau d’urgence et libère le sémaphore pour que toute attente se termine proprement ; `nbErrors()` comptabilise les séquences invalides.
 
-## 2. Section partagée (`sharedsection.h`)
+## Parcours et aiguillages
+- Chaque locomotive alterne deux configurations (`forwardConfig`, `backwardConfig`) qui définissent à la fois les contacts clefs et les aiguillages à positionner.
+- Boucle principale : contact d’approche → aiguillage d’entrée → `access()` → contacts internes → `leave()` → contact post-sortie → `release()` → contact d’inversion → `loco.inverserSens()`.
 
-```65:205:code/src/sharedsection.h
-void SharedSection::access(...) {
-    ...
-    if (isOccupied) {
-        waitingLoco = &loco;
-        waitingDirection = d;
-        mutex.release();
-        loco.arreter();
-        sem.acquire();
-        ...
-    }
-    isOccupied = true;
-    currentLoco = &loco;
-    currentDirection = d;
-    hasAccess = true;
-    isReleased = false;
-    loco.demarrer();
-}
-```
+### Loco rouge (n°7)
+- **Sens base**  
+  - Contacts : approche 36, entrée 17, pré-sortie 27, post-sortie 9, inversion 5.  
+  - Aiguillages : entrée 24 (dévié), sortie 18 (dévié), contrainte 15 (dévié pour ne pas sortir sur la mauvaise boucle).
+- **Sens inverse**  
+  - Contacts : approche 8, après entrée 27, pré-sortie 17, post-sortie 35, inversion 34.  
+  - Aiguillages : entrée 6 (dévié), sortie 12 (dévié), contrainte 8 (dévié).
 
-a) `access()` bloque via un sémaphore (`sem`) tant que la section est occupée. La loco en attente est arrêtée et sa direction mémorisée pour appliquer les règles "opposé/même sens".
+### Loco bleue (n°42)
+- **Sens base**  
+  - Contacts : approche 28, entrée 24, pré-sortie 15, post-sortie 10, inversion 1.  
+  - Aiguillages : entrée 16 (dévié), sortie 8 (tout droit), contrainte 12 (tout droit).
+- **Sens inverse**  
+  - Contacts : approche 4, entrée 15, pré-sortie 24, post-sortie 22, inversion 31.  
+  - Aiguillages : entrée 7 (dévié), sortie 15 (tout droit), contrainte 18 (tout droit).
 
-```110:180:code/src/sharedsection.h
-void SharedSection::leave(...) {
-    ...
-    lastLeftDirection = currentDirection;
-    isOccupied = false;
-    hasAccess = false;
-    currentLoco = nullptr;
-    isReleased = false;
-    bool shouldReleaseImmediately = (waitingLoco != nullptr &&
-                                     waitingDirection != lastLeftDirection);
-    mutex.release();
-    if (shouldReleaseImmediately) {
-        release(loco);
-    }
-}
-```
+## Arrêt d’urgence
+- `emergency_stop()` conserve des pointeurs globaux sur les locomotives et la section partagée ; il coupe la traction (`arreter()`) puis appelle `stopAll()` pour éviter tout redémarrage intempestif sans couper la maquette entière.
 
-b) `leave()` ne libère pas directement la section : la sortie physique est enregistrée, puis `release()` est déclenché immédiatement uniquement si la loco en attente roule en sens opposé.
+## Vérification
+- Tests unitaires de base +
+  - `OppositeDirections_ReleaseIsImmediate` s’assure qu’un train en sens opposé est relâché avant l’appel explicite à `release()`.
+  - `StopAll_UnblocksWaitingAccess` confirme que `stopAll()` libère les locomotives bloquées dans `access()`.
+- Vérification manuelle : observation des contacts 36/17/27/9 (loco 7) et 28/24/15/10 (loco 42), plus inversion aux contacts 5/34 et 1/31.
 
-```150:190:code/src/sharedsection.h
-void SharedSection::release(...) {
-    ...
-    if (isReleased) return;
-    if (!isOccupied && waitingLoco != nullptr) {
-        bool isOppositeDirection = (waitingDirection != lastLeftDirection);
-        if (isOppositeDirection || !isReleased) {
-            isReleased = true;
-            sem.release();
-        }
-    } else {
-        isReleased = true;
-    }
-}
-```
-
-c) `release()` assure le délai post-sortie pour les sens identiques : la libération n'est effective qu'après le contact attendu, ce qui évite l'effet "stop/redémarrage immédiat".
-
-`stopAll()` positionne un drapeau `emergencyStop` et relâche le sémaphore pour que toute loco bloquée s'arrête proprement. `nbErrors()` comptabilise les séquences incorrectes (`access` double, `leave` hors ordre, etc.).
-
-## 3. Parcours cycliques (`locomotivebehavior.cpp`)
-
-```49:128:code/src/locomotivebehavior.cpp
-if (isLocoA) {
-    forwardConfig = {36,17,27,9,5, 24,DEVIE, 18,DEVIE, 15,DEVIE, D1};
-    backwardConfig = {8,27,17,35,34, 6,DEVIE, 12,DEVIE, 8,DEVIE, D2};
-} else {
-    forwardConfig = {28,24,15,10,1, 16,DEVIE, 8,TOUT_DROIT, 12,TOUT_DROIT, D2};
-    backwardConfig = {4,15,24,22,31, 7,DEVIE, 15,TOUT_DROIT, 18,TOUT_DROIT, D1};
-}
-...
-attendre_contact(current.contactBeforeEntry);
-applySwitch(current.entrySwitchId,...);
-sharedSection->access(loco, current.sharedDirection);
-...
-attendre_contact(current.contactAfterExit);
-sharedSection->release(loco);
-attendre_contact(current.inversionContact);
-loco.inverserSens();
-current = (current.sharedDirection == forwardConfig.sharedDirection)
-              ? backwardConfig
-              : forwardConfig;
-```
-
-Chaque locomotive alterne deux configurations : sens "base" et sens "inverse". Chaque configuration fixe les contacts (approche, entrée, sortie, inversion) et les aiguillages à commuter :
-- Loco 7 : entrée via 24 (DEVIE) / sortie via 18 (DEVIE) en sens base, et 6/12 pour le retour.
-- Loco 42 : entrée via 16 (DEVIE) / sortie via 8 (TOUT_DROIT) en sens base, puis 7 / 15 pour le retour.
-
-Pendant l'occupation, des aiguillages supplémentaires sont forcés (`insideSwitchId`) afin de respecter les contraintes du plan de voie (ex. loco 7 base ⇒ aiguillage 15 dévié).
-
-## 4. Arrêt d'urgence (`cppmain.cpp`)
-
-```31:47:code/src/cppmain.cpp
-void emergency_stop() {
-    afficher_message("\\nSTOP!");
-    if (g_locoA) g_locoA->arreter();
-    if (g_locoB) g_locoB->arreter();
-    if (g_sharedSection) {
-        g_sharedSection->stopAll();
-    }
-}
-```
-
-L'arrêt d'urgence mémorise un pointeur global vers la section partagée : on stoppe immédiatement les deux locomotives puis on notifie `SharedSection::stopAll()` pour débloquer toute attente.
-
-## 5. Tests et validation
-
-- `ctest` / `make unit_tests` : exécute trois tests GoogleTest fournis (`SharedSection.TwoSameDirection`, `ConsecutiveAccess`, `LeaveWrongDirection`).
-- Vérification manuelle sur le simulateur : observation des contacts 36/17/27/9 (loco 7) et 28/24/15/10 (loco 42) pour s'assurer que `leave()` et `release()` sont déclenchés aux bons moments, et que l'inversion se produit aux contacts 5/34 et 1/31.
-
-## 6. Choix d'implémentation
-
-1. **Sémaphore unique** : une seule locomotive peut attendre car il n'y a que deux threads. Le sémaphore `sem` suffit, couplé à `waitingLoco` / `waitingDirection` pour retrouver l'état.
-2. **Libération différée** : `release()` ne délivre le sémaphore qu'après un contact supplémentaire lorsque la loco suivante roule dans le même sens → confort des passagers.
-3. **Configurations paramétrées** : les parcours sont décrits par des structures `DirectionConfig` afin d'éviter la duplication de code entre les deux locomotives et leurs deux sens.
-4. **Arrêt d'urgence centralisé** : `emergency_stop()` agit à la fois sur les locomotives et sur la section partagée afin de garantir l'absence de redémarrage intempestif.
-
+## Principaux choix
+1. **Sémaphore unique + état mémorisé** pour appliquer la règle sens opposé/sens identique.
+2. **Libération différée** afin d’éviter un stop/redémarrage immédiat en cas de même direction.
+3. **Configurations paramétrées** (`DirectionConfig`) pour centraliser contacts et aiguillages.
+4. **Arrêt centralisé** : `emergency_stop()` agit sur le matériel et la synchronisation sans appeler `mettre_maquette_hors_service()`.

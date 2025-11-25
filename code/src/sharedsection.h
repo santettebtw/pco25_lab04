@@ -41,20 +41,8 @@ public:
      * @brief SharedSection Constructeur de la classe qui représente la section partagée.
      * Initialisez vos éventuels attributs ici, sémaphores etc.
      */
-    SharedSection() 
-        : sem(0), 
-          mutex(1), 
-          isOccupied(false),
-          currentDirection(Direction::D1),
-          currentLoco(nullptr),
-          hasAccess(false),
-          errorCount(0),
-          emergencyStop(false),
-          waitingLoco(nullptr),
-          waitingDirection(Direction::D1),
-          lastLeftDirection(Direction::D1),
-          isReleased(false)
-    {
+    SharedSection() : sem(0), mutex(1), blocked(false){
+        // TODO
     }
 
     /**
@@ -63,42 +51,17 @@ public:
      * @param Direction of the locomotive
      */
     void access(Locomotive& loco, Direction d) override {
-        mutex.acquire();
-        
         // erreur : access() appele deux fois sans leave()
         if (hasAccess && currentLoco == &loco)
             errorCount++;
-
-
-        
+ 
         // si la section est occupée, attendre
         if (isOccupied) {
             // Enregistrer la locomotive en attente
             waitingLoco = &loco;
             waitingDirection = d;
             mutex.release();
-            loco.arreter();  // Arrêter la locomotive
-            sem.acquire();  // Attendre qu'une place se libère
-            
-            // verifier si arret d'urgence
-            if (emergencyStop) {
-                mutex.release();
-                return;
-            }
-            
-            mutex.acquire();
-            waitingLoco = nullptr;
         }
-        
-        // Accès accordé
-        isOccupied = true;
-        currentLoco = &loco;
-        currentDirection = d;
-        hasAccess = true;
-        isReleased = false;  // Réinitialiser le flag de libération
-        loco.demarrer();  // Redémarrer si elle était arrêtée
-        
-        mutex.release();
     }
 
     /**
@@ -109,7 +72,6 @@ public:
     void leave(Locomotive& loco, Direction d) override {
         mutex.acquire();
         
-        // Détection d'erreurs
         if (!hasAccess || currentLoco != &loco) {
             errorCount++;
         }
@@ -118,24 +80,23 @@ public:
             errorCount++;
         }
         
-        // La locomotive quitte physiquement la section
+        // la locomotive quitte physiquement la section
         lastLeftDirection = currentDirection;
         isOccupied = false;
-        hasAccess = false;  // Marquer qu'on a quitté, mais pas encore libéré
+        hasAccess = false;  // Marquer qu'on a quitte, mais pas encore libére
         currentLoco = nullptr;
         isReleased = false;  // Pas encore libéré
         
-        // Vérifier s'il y a une locomotive en attente avec direction opposée
+        // verifier s'il y a une locomotive en attente avec direction opposee
         bool shouldReleaseImmediately = (waitingLoco != nullptr && 
                                         waitingDirection != lastLeftDirection);
         
         mutex.release();
         
-        // Si sens opposé, libérer immédiatement pour permettre l'entrée
+        // si sens oppose, liberer immediatement pour permettre l'entree
         if (shouldReleaseImmediately) {
             release(loco);
         }
-        // Sinon, release() sera appelé après le contact suivant (même sens)
     }
 
     /**
@@ -145,20 +106,20 @@ public:
     void release(Locomotive &loco) override {
         mutex.acquire();
         
-        // Détection d'erreur : release() sans leave() préalable
+        // erreur: release() sans leave() avant
         if (hasAccess && currentLoco == &loco) {
             errorCount++;
             mutex.release();
             return;
         }
         
-        // Si déjà libéré, ne rien faire (évite les doubles libérations)
+        // Si déjà libéré, ne rien faire
         if (isReleased) {
             mutex.release();
             return;
         }
 
-        // Libérer la section : permettre à une locomotive en attente d'entrer
+        // liberer la section
         if (!isOccupied && waitingLoco != nullptr) {
             // Vérifier si direction opposée (libération immédiate) ou même sens
             bool isOppositeDirection = (waitingDirection != lastLeftDirection);
@@ -168,7 +129,7 @@ public:
                 sem.release();
             }
         } else {
-            isReleased = true;  // Marquer comme libéré même s'il n'y a pas d'attente
+            isReleased = true; // Marquer comme libéré même s'il n'y a pas d'attente
         }
 
         mutex.release();
@@ -180,13 +141,9 @@ public:
     void stopAll() override {
         mutex.acquire();
         emergencyStop = true;
-        
-        // Libérer toutes les locomotives en attente (elles vérifieront emergencyStop)
-        // On libère plusieurs fois pour s'assurer de libérer toutes les locomotives
 
         sem.release();
 
-        
         mutex.release();
     }
 
@@ -205,19 +162,7 @@ private:
      */
     PcoSemaphore sem;
     PcoSemaphore mutex;
-    
-    bool isOccupied;
-    Direction currentDirection;
-    Locomotive* currentLoco;
-    bool hasAccess; // Suivre si la locomotive a fait access() sans leave()
-    int errorCount; 
-    bool emergencyStop;
-    
-    // Pour gérer les directions opposées
-    Locomotive* waitingLoco; // Locomotive en attente
-    Direction waitingDirection; // Direction de la locomotive en attente
-    Direction lastLeftDirection; // Direction de la dernière locomotive qui a quitté
-    bool isReleased;	// Flag pour savoir si la section a été libérée
+    bool blocked;
 };
 
 

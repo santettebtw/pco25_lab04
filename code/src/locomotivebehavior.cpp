@@ -14,7 +14,6 @@
 namespace {
 struct DirectionConfig {
     int contactBeforeEntry;
-    int contactAfterEntry;
     int contactBeforeExit;
     int contactAfterExit;
     int inversionContact;
@@ -48,48 +47,44 @@ void LocomotiveBehavior::run()
 
     if (isLocoA) {
         forwardConfig = DirectionConfig{
-            36,  // before entry
-            17,  // after entry
-            27,  // before exit
-            9,   // after exit
-            5,   // inversion
-            24, DEVIE,  // entry switch
-            18, DEVIE,  // exit switch
-            15, DEVIE,  // inside constraint
+            36,	// before entry
+            27,	// before exit
+            9,	// after exit
+            5,	// inversion
+            24, DEVIE,	// entry switch
+            18, DEVIE,	// exit switch
+            15, DEVIE,	// inside constraint
             SharedSectionInterface::Direction::D1
         };
         backwardConfig = DirectionConfig{
-            8,   // before entry (reverse)
-            27,  // after entry
-            17,  // before exit
-            35,  // after exit
-            34,  // inversion
-            6, DEVIE,   // entry switch
-            12, DEVIE,  // exit switch
-            8, DEVIE,   // inside constraint
+            8,	// before entry (reverse)
+            17,	// before exit
+            35,	// after exit
+            34,	// inversion
+            6, DEVIE,	// entry switch
+            12, DEVIE,	// exit switch
+            8, DEVIE,	// inside constraint
             SharedSectionInterface::Direction::D2
         };
     } else {
         forwardConfig = DirectionConfig{
-            28,  // before entry
-            24,  // after entry
-            15,  // before exit
-            10,  // after exit
-            1,   // inversion
-            16, DEVIE,      // entry switch
-            8,  TOUT_DROIT, // exit switch
-            12, TOUT_DROIT, // inside constraint
+            28,	// before entry
+            15,	// before exit
+            10,	// after exit
+            1,	// inversion
+            16, DEVIE,		// entry switch
+            8,  TOUT_DROIT,	// exit switch
+            12, TOUT_DROIT,	// inside constraint
             SharedSectionInterface::Direction::D2
         };
         backwardConfig = DirectionConfig{
-            4,  // before entry (reverse)
-            15,  // after entry
-            24,  // before exit
-            22,  // after exit
-            31,  // inversion
-            7, DEVIE,        // entry switch
-            15, TOUT_DROIT,  // exit switch
-            18, TOUT_DROIT,  // inside constraint
+            4,	// before entry (reverse)
+            24,	// before exit
+            22,	// after exit
+            31,	// inversion
+            7, DEVIE,		// entry switch
+            15, TOUT_DROIT,	// exit switch
+            18, TOUT_DROIT,	// inside constraint
             SharedSectionInterface::Direction::D1
         };
     }
@@ -97,31 +92,31 @@ void LocomotiveBehavior::run()
     DirectionConfig current = forwardConfig;
 
     while (true) {
-        // Approche de la section partagée
+        // approche de la section partagee
         attendre_contact(current.contactBeforeEntry);
 
-        // Préparer l'entrée : aiguillage et réservation
+        // preparer l'entree avec aiguillage et access
         applySwitch(current.entrySwitchId, current.entrySwitchState);
         sharedSection->access(loco, current.sharedDirection);
         applySwitch(current.insideSwitchId, current.insideSwitchState);
 
-        // La locomotive est dans la section, suivre le parcours
-        attendre_contact(current.contactAfterEntry);
+        // la locomotive est dans la section, suivre le parcours
+		// jusqu'a la sortie
         attendre_contact(current.contactBeforeExit);
 
-        // Prévenir la sortie de la zone partagée
+        // prevenir la sortie de la zone partagee
         sharedSection->leave(loco, current.sharedDirection);
         applySwitch(current.exitSwitchId, current.exitSwitchState);
 
-        // Attendre d'avoir dégagé le tronçon
+        // attendre d'etre partis de la section
         attendre_contact(current.contactAfterExit);
         sharedSection->release(loco);
 
-        // Continuer jusqu'au point d'inversion
+        // continuer jusqu'au point d'inversion
         attendre_contact(current.inversionContact);
         loco.inverserSens();
 
-        // Passer au parcours retour
+        // passer au parcours sens inverse
         current = (current.sharedDirection == forwardConfig.sharedDirection)
                       ? backwardConfig
                       : forwardConfig;

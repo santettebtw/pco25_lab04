@@ -72,3 +72,66 @@ TEST(SharedSection, LeaveWrongDirection_IsError) {
     ASSERT_EQ(section.nbErrors(), 1);
 }
 
+TEST(SharedSection, OppositeDirections_ReleaseIsImmediate) {
+    SharedSection section;
+    Locomotive l1(1, 10, 0), l2(2, 10, 0);
+    std::atomic<bool> releaseCalled{false};
+    std::atomic<bool> secondEnteredBeforeRelease{false};
+
+    PcoThread t1([&]{
+        section.access(l1, SharedSectionInterface::Direction::D1);
+        PcoThread::usleep(1000);
+        section.leave(l1, SharedSectionInterface::Direction::D1); // should wake opposite direction
+        PcoThread::usleep(1000);
+        releaseCalled = true;
+        section.release(l1);
+    });
+
+    PcoThread t2([&]{
+        PcoThread::usleep(500);
+        section.access(l2, SharedSectionInterface::Direction::D2);
+        if (!releaseCalled.load()) {
+            secondEnteredBeforeRelease = true;
+        }
+        section.leave(l2, SharedSectionInterface::Direction::D2);
+        section.release(l2);
+    });
+
+    t1.join();
+    t2.join();
+    ASSERT_TRUE(secondEnteredBeforeRelease.load());
+    ASSERT_EQ(section.nbErrors(), 0);
+}
+
+TEST(SharedSection, StopAll_UnblocksWaitingAccess) {
+    SharedSection section;
+    Locomotive l1(1, 10, 0), l2(2, 10, 0);
+    std::atomic<bool> waitingThreadCompleted{false};
+    std::atomic<bool> stopSent{false};
+
+    PcoThread t1([&]{
+        section.access(l1, SharedSectionInterface::Direction::D1);
+        while (!stopSent.load()) {
+            PcoThread::usleep(1000);
+        }
+        section.leave(l1, SharedSectionInterface::Direction::D1);
+        section.release(l1);
+    });
+
+    PcoThread t2([&]{
+        PcoThread::usleep(500);
+        section.access(l2, SharedSectionInterface::Direction::D1);
+        waitingThreadCompleted = true;
+    });
+
+    PcoThread::usleep(5000);
+    section.stopAll();
+    stopSent = true;
+
+    t2.join();
+    ASSERT_TRUE(waitingThreadCompleted.load());
+
+    t1.join();
+    ASSERT_EQ(section.nbErrors(), 0);
+}
+
