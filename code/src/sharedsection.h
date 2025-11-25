@@ -157,12 +157,12 @@ public:
             mutex.release();
             return;
         }
-        
+
         // Libérer la section : permettre à une locomotive en attente d'entrer
         if (!isOccupied && waitingLoco != nullptr) {
             // Vérifier si direction opposée (libération immédiate) ou même sens
             bool isOppositeDirection = (waitingDirection != lastLeftDirection);
-            
+
             if (isOppositeDirection || !isReleased) {
                 isReleased = true;
                 sem.release();
@@ -170,7 +170,7 @@ public:
         } else {
             isReleased = true;  // Marquer comme libéré même s'il n'y a pas d'attente
         }
-        
+
         mutex.release();
     }
 
