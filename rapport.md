@@ -15,6 +15,8 @@
 - Chaque locomotive alterne deux configurations (`forwardConfig`, `backwardConfig`) qui définissent à la fois les contacts clefs et les aiguillages à positionner.
 - Boucle principale : contact d’approche → aiguillage d’entrée → `access()` → contacts internes → `leave()` → contact post-sortie → `release()` → contact d’inversion → `loco.inverserSens()`.
 
+![schema circuit](schema circuit .png)
+
 ### Loco rouge (n°7)
 - **Sens base**  
   - Contacts : approche 36, entrée 17, pré-sortie 27, post-sortie 9, inversion 5.  
