@@ -66,11 +66,10 @@ public:
         mutex.acquire();
         
         // erreur : access() appele deux fois sans leave()
-        if (hasAccess && currentLoco == &loco) {
+        if (hasAccess && currentLoco == &loco)
             errorCount++;
-            mutex.release();
-            return;
-        }
+
+
         
         // si la section est occupée, attendre
         if (isOccupied) {
@@ -113,14 +112,10 @@ public:
         // Détection d'erreurs
         if (!hasAccess || currentLoco != &loco) {
             errorCount++;
-            mutex.release();
-            return;
         }
         
         if (currentDirection != d) {
             errorCount++;
-            mutex.release();
-            return;
         }
         
         // La locomotive quitte physiquement la section
@@ -188,9 +183,9 @@ public:
         
         // Libérer toutes les locomotives en attente (elles vérifieront emergencyStop)
         // On libère plusieurs fois pour s'assurer de libérer toutes les locomotives
-        for (int i = 0; i < 10; i++) {
-            sem.release();
-        }
+
+        sem.release();
+
         
         mutex.release();
     }
@@ -200,10 +195,7 @@ public:
      * @return nbErrors
      */
     int nbErrors() override {
-        mutex.acquire();
-        int errors = errorCount;
-        mutex.release();
-        return errors;
+        return errorCount;
     }
 
 private:
