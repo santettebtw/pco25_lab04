@@ -23,12 +23,28 @@ static Locomotive locoA(7 /* Numéro (pour commande trains sur maquette réelle)
 // Locomotive B
 static Locomotive locoB(42 /* Numéro (pour commande trains sur maquette réelle) */, 12 /* Vitesse */);
 
+// Variable globale pour l'arrêt d'urgence
+static std::shared_ptr<SharedSectionInterface> g_sharedSection = nullptr;
+static Locomotive* g_locoA = &locoA;
+static Locomotive* g_locoB = &locoB;
+
 //Arret d'urgence
 void emergency_stop()
 {
-    /* TODO */
-
     afficher_message("\nSTOP!");
+    
+    // Arrêter toutes les locomotives
+    if (g_locoA) {
+        g_locoA->arreter();
+    }
+    if (g_locoB) {
+        g_locoB->arreter();
+    }
+    
+    // Appeler stopAll() sur la section partagée
+    if (g_sharedSection) {
+        g_sharedSection->stopAll();
+    }
 }
 
 
@@ -103,6 +119,7 @@ int cmain()
 
     // Création de la section partagée
     std::shared_ptr<SharedSectionInterface> sharedSection = std::make_shared<SharedSection>();
+    g_sharedSection = sharedSection;  // Sauvegarder pour emergency_stop()
 
     // Création du thread pour la loco 0
     std::unique_ptr<Launchable> locoBehaveA = std::make_unique<LocomotiveBehavior>(locoA, sharedSection /*, autres paramètres ...*/);
