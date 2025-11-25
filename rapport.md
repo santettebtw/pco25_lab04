@@ -1,5 +1,8 @@
 # Rapport — PCO25 Lab04
 
+- Auteur : Anthony Pfister, Santiago Sugranes
+- Date : 25.11.2025
+
 ## Architecture
 - Deux threads `LocomotiveBehavior` (locos 7 et 42) pilotent chacun un parcours cyclique avec inversion de sens.
 - Une unique `SharedSection` sérialise l’accès au tronçon commun via `PcoSemaphore`.
